@@ -199,9 +199,14 @@ int main (int argc, char *argv[])
             if (n > 0) {
                 printRecv(&recvpkt);
 
-                buildPkt(&ackpkt, recvpkt.acknum, (recvpkt.seqnum+recvpkt.length) % MAX_SEQN, 0, 0, 1, 0, 0, NULL);
-                printSend(&ackpkt, 0);
-                sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
+                printf("HERE!!!%d",recvpkt.fin);
+                if (recvpkt.fin==0){
+                    buildPkt(&ackpkt, recvpkt.acknum, (recvpkt.seqnum+recvpkt.length+HDR_SIZE) % MAX_SEQN, 0, 0, 1, 0, 0, NULL);
+                    printSend(&ackpkt, 0);
+                    sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
+                    break;
+                }
+                
 
 
 
