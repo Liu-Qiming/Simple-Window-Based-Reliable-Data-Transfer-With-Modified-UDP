@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <netdb.h> 
 
+#include <stdbool.h>
 // =====================================
 
 #define RTO 500000 /* timeout in microseconds */
@@ -187,10 +188,17 @@ int main (int argc, char *argv[])
     int e = 0;
     int full = 0;
 
+    bool finish = false;
+
     // =====================================
     // Send First Packet (ACK containing payload)
 
     m = fread(buf, 1, PAYLOAD_SIZE, fp);
+   
+    if (m < PAYLOAD_SIZE)
+    {
+        finish = true;
+    }
 
     buildPkt(&pkts[0], seqNum, (synackpkt.seqnum + 1) % MAX_SEQN, 0, 0, 1, 0, m, buf);
     printSend(&pkts[0], 0);
@@ -208,13 +216,57 @@ int main (int argc, char *argv[])
     //       single data packet, and then tears down the connection without
     //       handling data loss.
     //       Only for demo purpose. DO NOT USE IT in your final submission
+    unsigned short first_seq = pkts[0].seqnum; 
     while (1) {
-        n = recvfrom(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
-        if (n > 0) {
-            break;
-        }
-    }
+        // n = recvfrom(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
+        // if (n > 0) {
+        //     break;
+        // }
 
+        // for now, assume no loss and just send the data
+        printf("flag 1");
+        for (int i = 0; i<10; i++)
+        {
+            printf("round %d\n", i);
+            if (i == 0)
+            {
+                continue;
+            }
+
+            if (finish == true)
+            {
+                continue;
+            }
+
+            if (i != 0)
+            {
+
+                first_seq = (first_seq +pkts[i-1].length + HDR_SIZE) % MAX_SEQN;
+                //seqNum = pkts[i-1].seqnum + pkts[i-1].length + HDR_SIZE; 
+
+                
+                //unsigned int  
+                char temp[PAYLOAD_SIZE];
+                m = fread(temp, 1, PAYLOAD_SIZE, fp);
+
+                buildPkt(&pkts[i], first_seq, 0, 0, 0, 0, 0, m, temp);
+                printSend(&pkts[i], 0);
+
+                sendto(sockfd, &pkts[i], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+
+                if (m < PAYLOAD_SIZE)
+                {
+                    finish = true;
+                    break;
+                }
+            }
+
+        }
+        if (finish == true)
+        {break;}
+
+
+    }
     // *** End of your client implementation ***
     fclose(fp);
 
@@ -268,3 +320,4 @@ int main (int argc, char *argv[])
         }
     }
 }
+
