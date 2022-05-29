@@ -199,6 +199,16 @@ int main (int argc, char *argv[])
             if (n > 0) {
                 printRecv(&recvpkt);
 
+                buildPkt(&ackpkt, recvpkt.acknum, (recvpkt.seqnum+recvpkt.length) % MAX_SEQN, 0, 0, 1, 0, 0, NULL);
+                printSend(&ackpkt, 0);
+                sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
+
+
+
+
+
+
+                // client sends fin
                 if (recvpkt.fin) {
                     cliSeqNum = (cliSeqNum + 1) % MAX_SEQN;
 
