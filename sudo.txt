@@ -1,0 +1,48 @@
+
+i = 1
+bool first_loop=true;
+timer[10]
+
+while (i <=10)
+{
+    if (i < 10)
+    {
+        send;
+        if (first_loop){
+            timer[i] = settimer()
+            i++
+            continue
+        }
+        else{
+            timer[9]=settime();
+            buildpkt(pkts[9])
+            i++;
+        }
+        
+        
+    }
+    first_loop=false;
+    if (i==10)
+    {
+        receive;
+        if(ack == expected)
+        {
+            i--
+            shift func((void*)arr){
+
+            }
+            
+        }
+        
+        if (timeout(timer[0])){
+            timer.clear()
+            loop 
+                retrx(pkts)
+                timer[index0-9]=settimer()
+            
+
+        }
+        
+
+    }
+}
