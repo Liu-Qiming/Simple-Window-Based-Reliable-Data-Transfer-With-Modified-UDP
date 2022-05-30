@@ -249,7 +249,7 @@ int main (int argc, char *argv[])
                 char temp[PAYLOAD_SIZE];
                 m = fread(temp, 1, PAYLOAD_SIZE, fp);
 
-                buildPkt(&pkts[i], first_seq, (synackpkt.seqnum + 1) % MAX_SEQN, 0, 0, 1, 0, m, temp);
+                buildPkt(&pkts[i], first_seq, 0, 0, 0, 0, 0, m, temp);
                 printSend(&pkts[i], 0);
 
                 sendto(sockfd, &pkts[i], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
