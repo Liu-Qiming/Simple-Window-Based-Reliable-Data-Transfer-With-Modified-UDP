@@ -278,11 +278,11 @@ int main (int argc, char *argv[])
         
         while (1)
         {
-            struct packet tempt;
+            //struct packet tempt;
             while(1)
             {
                 
-                n = recvfrom(sockfd, &tempt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
+                n = recvfrom(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
                 if (n>0)
                 {
                     break;
@@ -290,7 +290,7 @@ int main (int argc, char *argv[])
             }
 
             // print receive
-            printRecv(&tempt); 
+            printRecv(&ackpkt); 
 
             // check if is expected, if yes send new pkt
             not_yet_received --;
@@ -298,10 +298,10 @@ int main (int argc, char *argv[])
             {
                 break;
             }
-            if ((tempt.ack || tempt.dupack) && tempt.acknum == expected)
+            if ((ackpkt.ack || ackpkt.dupack) && ackpkt.acknum == expected)
             {
 
-                unsigned short new_seq = tempt.acknum + 9* 512;
+                unsigned short new_seq = ackpkt.acknum + 9* 512;
 
                 struct packet new;
 
