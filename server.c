@@ -202,7 +202,8 @@ int main (int argc, char *argv[])
                 printRecv(&recvpkt);
 
                 unsigned short expect_cliseq=(cliSeqNum+PAYLOAD_SIZE)%MAX_SEQN;
-                if (abs(expect_cliseq-recvpkt.seqnum)>512){
+                //printf("the expect value is: %d\n", expect_cliseq);
+                if (abs(expect_cliseq-recvpkt.seqnum)>512 && recvpkt.fin==0){
 
                     buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 1, 0, NULL);
                     printSend(&ackpkt, 0);
@@ -227,6 +228,7 @@ int main (int argc, char *argv[])
                     fclose(fp);
 
                     cliSeqNum=(recvpkt.seqnum+recvpkt.length) % MAX_SEQN;
+                    printf("the received pkt length is: %d\n",recvpkt.length);
                     buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
                     printSend(&ackpkt, 0);
                     sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
@@ -235,7 +237,7 @@ int main (int argc, char *argv[])
                 }
 
                 // client sends fin
-                if (recvpkt.fin) {
+                else if (recvpkt.fin) {
                     cliSeqNum = (cliSeqNum + 1) % MAX_SEQN;
 
                     buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
@@ -249,8 +251,9 @@ int main (int argc, char *argv[])
         }
 
         // *** End of your server implementation ***
-
-        fclose(fp);
+        // ========================================
+        // ******** commented out the following code will not double free ************************
+        //fclose(fp);
         // =====================================
         // Connection Teardown: This procedure is provided to you directly and
         // is already working.
@@ -278,6 +281,7 @@ int main (int argc, char *argv[])
             }
 
             printRecv(&lastackpkt);
+            //printf("lastackpkt acknum: %d\nfinpkt seqNum: %d\nlast fin is: %d",lastackpkt.acknum, finpkt.seqnum, lastackpkt.fin);
             if (lastackpkt.fin) {
 
                 printSend(&ackpkt, 0);
@@ -289,6 +293,7 @@ int main (int argc, char *argv[])
                 
                 continue;
             }
+            
             if ((lastackpkt.ack || lastackpkt.dupack) && lastackpkt.acknum == (finpkt.seqnum + 1) % MAX_SEQN)
                 break;
         }
