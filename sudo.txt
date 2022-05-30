@@ -1,51 +1,54 @@
+i=1;
+timer[10];
+seqNum
+expected_seqNum=seqNum+512;
 
-i = 1
-bool first_loop=true;
-timer[10]
-
-while (i <=10)
-{
-    if (i < 10)
-    {
-        send;
-        if (first_loop){
-            timer[i] = settimer()
-            i++
-            continue
-        }
-        else{
-            timer[9]=settime();
-            buildpkt(pkts[9])
-            i++;
-        }
+while(1){
+    // if windows is not full
+    if (i<10){
+        seqNum+=512
+        buildpkt(seqNum)
+        sendpkt
         
-        
+        timer[i]=settimer();
+        i++
     }
-    first_loop=false;
-    if (i==10)
-    {
-        receive;
-        if(ack == expected)
-        {
-            i--
-            shift func((void*)arr){
 
-            }
-            
-        }
-        //dup ack (pkt loss)
-        else{
-            while (!timeout(timer[0])){
-                continue;
+    //if windows is full
+    else{
+        while(1){
+            // if bug, possibly move the below if() to outer loop
+            if (pkts[0].timeout()){
+                //retransmission 
+                //TO THINK: think about retransmission seqNum and expected_seqNum
+                for (j=0;j<10;j++){
+                    buildpkt
+                    sendpkt
+                    timer[j]=settimer();
+                }
+                break;
             }
 
-            
-            timer.clear()
-            loop 
-                retrx(pkts)
-                timer[index0-9]=settimer()
-        }
-        
+            n=recvfrom()
+            if (n>0){
+                expected_seqNum
+                if (recvpkt.dupack==0 && ack==expected_seqNum){
+                    seqNum+=512
+                    buildpkt(seqNum)
+                    sendpkt
+                    expected_seqNum+=sentpkt_length
+                    timer[9]=settimer();
+                }
+                else{
+                    continue;
+                }
 
+                
+
+
+
+            }
+
+        }
     }
 }
