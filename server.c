@@ -193,7 +193,7 @@ int main (int argc, char *argv[])
         //       Only for demo purpose. DO NOT USE IT in your final submission
         fclose(fp);
         struct packet recvpkt;
-        
+        //unsigned short srvSeqNum=ackpkt.acknum;
         int j=2;
 
         while(1) {
@@ -204,7 +204,7 @@ int main (int argc, char *argv[])
                 unsigned short expect_cliseq=(cliSeqNum+PAYLOAD_SIZE)%MAX_SEQN;
                 if (abs(expect_cliseq-recvpkt.seqnum)>512){
 
-                    buildPkt(&ackpkt, recvpkt.acknum, cliSeqNum, 0, 0, 1, 1, 0, NULL);
+                    buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 1, 0, NULL);
                     printSend(&ackpkt, 0);
                     sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
                     continue;
@@ -227,7 +227,7 @@ int main (int argc, char *argv[])
                     fclose(fp);
 
                     cliSeqNum=(recvpkt.seqnum+recvpkt.length) % MAX_SEQN;
-                    buildPkt(&ackpkt, recvpkt.acknum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
+                    buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
                     printSend(&ackpkt, 0);
                     sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
                     
