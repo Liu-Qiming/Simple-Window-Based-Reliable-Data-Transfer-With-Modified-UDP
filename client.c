@@ -217,6 +217,8 @@ int main (int argc, char *argv[])
     //       handling data loss.
     //       Only for demo purpose. DO NOT USE IT in your final submission
     unsigned short first_seq = pkts[0].seqnum; 
+    unsigned short expected = first_seq;
+    int not_yet_received = 1;
     while (1) {
         // n = recvfrom(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
         // if (n > 0) {
@@ -224,10 +226,10 @@ int main (int argc, char *argv[])
         // }
 
         // for now, assume no loss and just send the data
-        printf("flag 1");
+        
         for (int i = 0; i<10; i++)
         {
-            printf("round %d\n", i);
+            //printf("round %d\n", i);
             if (i == 0)
             {
                 continue;
@@ -239,20 +241,28 @@ int main (int argc, char *argv[])
             }
 
             if (i != 0)
-            {
-
-                first_seq = (first_seq +pkts[i-1].length) % MAX_SEQN;
-                //seqNum = pkts[i-1].seqnum + pkts[i-1].length + HDR_SIZE; 
-
-                
-                //unsigned int  
+            {            
                 char temp[PAYLOAD_SIZE];
                 m = fread(temp, 1, PAYLOAD_SIZE, fp);
 
+                if (m ==0)
+                {
+                    finish = true;
+                    break;
+                }
+
+                if (i == 1)
+                {
+                    expected = (expected + m ) % MAX_SEQN; 
+                }
+
+                first_seq = (first_seq + m) % MAX_SEQN;
+
                 buildPkt(&pkts[i], first_seq, 0, 0, 0, 0, 0, m, temp);
                 printSend(&pkts[i], 0);
-
                 sendto(sockfd, &pkts[i], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+                
+                not_yet_received ++;
 
                 if (m < PAYLOAD_SIZE)
                 {
@@ -262,10 +272,69 @@ int main (int argc, char *argv[])
             }
 
         }
-        if (finish == true)
+        if (finish == true && not_yet_received == 0)
         {break;}
 
+        
+        while (1)
+        {
+            struct packet tempt;
+            while(1)
+            {
+                
+                n = recvfrom(sockfd, &tempt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
+                if (n>0)
+                {
+                    break;
+                }
+            }
 
+            // print receive
+            printRecv(&tempt); 
+
+            // check if is expected, if yes send new pkt
+            not_yet_received --;
+            if (not_yet_received == 0)
+            {
+                break;
+            }
+            if ((tempt.ack || tempt.dupack) && tempt.acknum == expected)
+            {
+
+                unsigned short new_seq = tempt.acknum + 9* 512;
+
+                struct packet new;
+
+                char holder[PAYLOAD_SIZE];
+                m = fread(holder, 1, PAYLOAD_SIZE, fp);
+
+                if (m ==0)
+                {
+                    finish = true;
+                    break;
+                }
+
+
+                buildPkt(&new, new_seq, 0, 0, 0, 0, 0, m, holder);
+                printSend(&new, 0);
+                sendto(sockfd, &new, PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+
+                expected = expected + 512;
+                not_yet_received ++;
+
+                if (m < 512)
+                {
+                    finish = true;
+                    break;
+                }
+            }
+            
+        }
+        
+        if (finish == true && not_yet_received == 0)
+        {
+            break;
+        }
     }
     // *** End of your client implementation ***
     fclose(fp);
