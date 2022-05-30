@@ -122,7 +122,6 @@ int main (int argc, char *argv[])
         // =====================================
         // Establish Connection: This procedure is provided to you directly and
         // is already working.
-
         int n;
 
         FILE* fp;
@@ -192,26 +191,48 @@ int main (int argc, char *argv[])
         //       a single data packet, and then tears down the connection
         //       without handling data loss.
         //       Only for demo purpose. DO NOT USE IT in your final submission
+        fclose(fp);
         struct packet recvpkt;
+        
+        int j=2;
 
         while(1) {
             n = recvfrom(sockfd, &recvpkt, PKT_SIZE, 0, (struct sockaddr *) &cliaddr, (socklen_t *) &cliaddrlen);
             if (n > 0) {
                 printRecv(&recvpkt);
 
-                printf("HERE!!!%d",recvpkt.fin);
-                if (recvpkt.fin==0){
-                    buildPkt(&ackpkt, recvpkt.acknum, (recvpkt.seqnum+recvpkt.length+HDR_SIZE) % MAX_SEQN, 0, 0, 1, 0, 0, NULL);
+                unsigned short expect_cliseq=(cliSeqNum+PAYLOAD_SIZE)%MAX_SEQN;
+                if (abs(expect_cliseq-recvpkt.seqnum)>512){
+
+                    buildPkt(&ackpkt, recvpkt.acknum, cliSeqNum, 0, 0, 1, 1, 0, NULL);
                     printSend(&ackpkt, 0);
                     sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
-                    break;
+                    continue;
                 }
-                
 
+                if (recvpkt.fin==0){
+                    
+                    int length = snprintf(NULL, 0, "%d", j) + 6;
+                    char* filename = malloc(length);
+                    snprintf(filename, length, "%d.file", j);
 
+                    fp = fopen(filename, "w");
+                    free(filename);
+                    if (fp == NULL) {
+                        perror("ERROR: File could not be created\n");
+                        exit(1);
+                    }
 
+                    fwrite(recvpkt.payload, 1, recvpkt.length, fp);
+                    fclose(fp);
 
-
+                    cliSeqNum=(recvpkt.seqnum+recvpkt.length) % MAX_SEQN;
+                    buildPkt(&ackpkt, recvpkt.acknum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
+                    printSend(&ackpkt, 0);
+                    sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
+                    
+                    j++;
+                }
 
                 // client sends fin
                 if (recvpkt.fin) {
@@ -223,6 +244,7 @@ int main (int argc, char *argv[])
 
                     break;
                 }
+                
             }
         }
 
