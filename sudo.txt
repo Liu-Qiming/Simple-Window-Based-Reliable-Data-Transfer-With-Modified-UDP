@@ -33,14 +33,17 @@ while (i <=10)
             }
             
         }
-        
-        if (timeout(timer[0])){
+        //dup ack (pkt loss)
+        else{
+            while (!timeout(timer[0])){
+                continue;
+            }
+
+            
             timer.clear()
             loop 
                 retrx(pkts)
                 timer[index0-9]=settimer()
-            
-
         }
         
 
