@@ -306,6 +306,20 @@ int main (int argc, char *argv[])
                 if (isTimeout(timers[0])){
                     // TODO: retransmission
                     // retrx all pkts[], clear all timers, add timer
+                    for (int j = 0; j< 10; j++)
+                    {
+                        if (timers[j] != -1)
+                        {
+                            struct packet curr_pkt;
+                            curr_pkt = pkts[j];
+
+                            // send all non-empty pkts:
+                            printSend(&curr_pkt, 0);
+                            sendto(sockfd, &curr_pkt, PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+                            timers[j] = setTimer();
+
+                        }
+                    }
                 }
                 n = recvfrom(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
                 
