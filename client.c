@@ -231,7 +231,7 @@ int main (int argc, char *argv[])
     //       handling data loss.
     //       Only for demo purpose. DO NOT USE IT in your final submission
     unsigned short first_seq = pkts[0].seqnum; 
-    unsigned short expected = first_seq;
+    unsigned short expected = (first_seq + pkts[0].length)%MAX_SEQN;
     int not_yet_received = 1;
     double timers[WND_SIZE];
     timers[0]=timer;
@@ -271,10 +271,10 @@ int main (int argc, char *argv[])
                     break;
                 }
 
-                if (i == 1)
-                {
-                    expected = (expected + m ) % MAX_SEQN; 
-                }
+                // if (i == 1)
+                // {
+                //     expected = (expected + m ) % MAX_SEQN; 
+                // }
 
                 first_seq = (first_seq + m) % MAX_SEQN;
 
@@ -338,9 +338,10 @@ int main (int argc, char *argv[])
             {
                 break;
             }
+            //printf("ackpkt.acknum=%d, expected=%d\n",ackpkt.acknum,expected);
             if ((ackpkt.ack || ackpkt.dupack) && ackpkt.acknum == expected)
             {
-                
+                //printf("im in\n");
                 unsigned short new_seq = (ackpkt.acknum + 9* 512)%MAX_SEQN;
 
                 //struct packet new;
@@ -354,6 +355,11 @@ int main (int argc, char *argv[])
                     break;
                 }
 
+
+                
+
+
+
                 shift_arr_timer(timers);
                 shift_arr_pkt(pkts);
                 buildPkt(&pkts[9], new_seq, 0, 0, 0, 0, 0, m, holder);
@@ -361,8 +367,8 @@ int main (int argc, char *argv[])
                 printSend(&pkts[9], 0);
                 sendto(sockfd, &pkts[9], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
                 // window shifting: pop front, push new pkt if has pkts left, push new timer
+                expected = (pkts[0].seqnum + pkts[0].length)%MAX_SEQN;
                 
-                expected = expected + 512;
                 not_yet_received ++;
 
                 if (m < 512)
