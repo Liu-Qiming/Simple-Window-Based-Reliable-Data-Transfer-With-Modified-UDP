@@ -85,6 +85,20 @@ int isTimeout(double end) {
     return ((end - start) < 0.0);
 }
 
+void shift_arr_timer(double arr[]){
+    for (int i=0;i!=10;i++){
+        arr[i]=arr[i+1];
+    }
+    arr[9]=-1;
+}
+
+void shift_arr_pkt(struct packet arr[]){
+    for (int i=0;i!=10;i++){
+        arr[i]=arr[i+1];
+    }
+}
+
+
 // =====================================
 
 int main (int argc, char *argv[])
