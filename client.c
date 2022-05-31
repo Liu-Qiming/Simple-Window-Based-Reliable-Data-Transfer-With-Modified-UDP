@@ -329,7 +329,7 @@ int main (int argc, char *argv[])
                 
                 unsigned short new_seq = (ackpkt.acknum + 9* 512)%MAX_SEQN;
 
-                struct packet new;
+                //struct packet new;
 
                 char holder[PAYLOAD_SIZE];
                 m = fread(holder, 1, PAYLOAD_SIZE, fp);
@@ -340,12 +340,14 @@ int main (int argc, char *argv[])
                     break;
                 }
 
-
-                buildPkt(&new, new_seq, 0, 0, 0, 0, 0, m, holder);
-                printSend(&new, 0);
-                sendto(sockfd, &new, PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+                shift_arr_timer(timers);
+                shift_arr_pkt(pkts);
+                buildPkt(&pkts[9], new_seq, 0, 0, 0, 0, 0, m, holder);
+                timers[9]=setTimer();
+                printSend(&pkts[9], 0);
+                sendto(sockfd, &pkts[9], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
                 // window shifting: pop front, push new pkt if has pkts left, push new timer
-
+                
                 expected = expected + 512;
                 not_yet_received ++;
 
