@@ -204,20 +204,26 @@ int main (int argc, char *argv[])
                 unsigned short expect_cliseq=(cliSeqNum+PAYLOAD_SIZE)%MAX_SEQN;
                 //printf("the expect value is: %d\n", expect_cliseq);
                 //if ((abs(expect_cliseq-recvpkt.seqnum)>512 ||(MAX_SEQN-cliSeqNum)+expect_cliseq>512)&& recvpkt.fin==0)
-                if ((abs(expect_cliseq-recvpkt.seqnum)>512)&& recvpkt.fin==0){
-                    if((MAX_SEQN-cliSeqNum)+expect_cliseq>512){
-                        buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 1, 0, NULL);
+                // printf("Very outside %d | %d | cliSeqNum: %d\n",recvpkt.seqnum, expect_cliseq, cliSeqNum);
+                // if ((abs(expect_cliseq-recvpkt.seqnum)>512)&& recvpkt.fin==0){
+
+                if (recvpkt.seqnum != cliSeqNum){
+                    //printf("outside %d | %d\n",recvpkt.seqnum, expect_cliseq);
+                    //if((MAX_SEQN-cliSeqNum)+expect_cliseq>512){
+                        //printf("inside %d | %d\n",recvpkt.seqnum, expect_cliseq);
+                        buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 0, 1, 0, NULL);
                         printSend(&ackpkt, 0);
                         sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
                         continue;
-                    }
+                    //}
                 }
+                //}
                 
                 
                     
                 
 
-                if (recvpkt.fin==0){
+                if (recvpkt.fin==0 && recvpkt.seqnum == cliSeqNum){
                     
                     int length = snprintf(NULL, 0, "%d", j) + 6;
                     char* filename = malloc(length);
