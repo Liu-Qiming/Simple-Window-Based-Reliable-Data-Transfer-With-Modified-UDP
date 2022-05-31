@@ -306,6 +306,9 @@ int main (int argc, char *argv[])
                 if (isTimeout(timers[0])){
                     // TODO: retransmission
                     // retrx all pkts[], clear all timers, add timer
+                    
+                    printTimeout(&pkts[0]);
+                    not_yet_received = 0;
                     for (int j = 0; j< 10; j++)
                     {
                         if (timers[j] != -1)
@@ -318,8 +321,11 @@ int main (int argc, char *argv[])
                             sendto(sockfd, &curr_pkt, PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
                             timers[j] = setTimer();
 
+                            not_yet_received ++;
+
                         }
                     }
+                    break;
                 }
                 n = recvfrom(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
                 
