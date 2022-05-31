@@ -219,6 +219,12 @@ int main (int argc, char *argv[])
     unsigned short first_seq = pkts[0].seqnum; 
     unsigned short expected = first_seq;
     int not_yet_received = 1;
+    double timers[WND_SIZE];
+    timers[0]=timer;
+    for (int k=1;k!=WND_SIZE;k++){
+        timers[k]=-1;
+    }
+
     while (1) {
         // n = recvfrom(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
         // if (n > 0) {
@@ -261,7 +267,8 @@ int main (int argc, char *argv[])
                 buildPkt(&pkts[i], first_seq, 0, 0, 0, 0, 0, m, temp);
                 printSend(&pkts[i], 0);
                 sendto(sockfd, &pkts[i], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
-                
+                timers[i]=setTimer();
+
                 not_yet_received ++;
 
                 if (m < PAYLOAD_SIZE)
@@ -274,15 +281,20 @@ int main (int argc, char *argv[])
         }
         if (finish == true && not_yet_received == 0)
         {break;}
-
+        
+        //========================================= first round timers/pkts full ===========================================================
         
         while (1)
         {
             //struct packet tempt;
             while(1)
             {
-                
+                if (isTimeout(timers[0])){
+                    // TODO: retransmission
+                    // retrx all pkts[], clear all timers, add timer
+                }
                 n = recvfrom(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
+                
                 if (n>0)
                 {
                     break;
@@ -300,8 +312,8 @@ int main (int argc, char *argv[])
             }
             if ((ackpkt.ack || ackpkt.dupack) && ackpkt.acknum == expected)
             {
-
-                unsigned short new_seq = ackpkt.acknum + 9* 512;
+                
+                unsigned short new_seq = (ackpkt.acknum + 9* 512)%MAX_SEQN;
 
                 struct packet new;
 
@@ -318,6 +330,7 @@ int main (int argc, char *argv[])
                 buildPkt(&new, new_seq, 0, 0, 0, 0, 0, m, holder);
                 printSend(&new, 0);
                 sendto(sockfd, &new, PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+                // window shifting: pop front, push new pkt if has pkts left, push new timer
 
                 expected = expected + 512;
                 not_yet_received ++;
@@ -328,7 +341,6 @@ int main (int argc, char *argv[])
                     break;
                 }
             }
-            
         }
         
         if (finish == true && not_yet_received == 0)
