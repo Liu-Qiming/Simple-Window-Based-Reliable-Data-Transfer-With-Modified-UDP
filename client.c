@@ -347,6 +347,7 @@ int main (int argc, char *argv[])
             //printf("ackpkt.acknum=%d, expected=%d\n",ackpkt.acknum,expected);
             if ((ackpkt.ack || ackpkt.dupack) && ackpkt.acknum == expected)
             {
+                
                 //printf("im in\n");
                 unsigned short new_seq = (ackpkt.acknum + 9* 512)%MAX_SEQN;
 
@@ -360,11 +361,6 @@ int main (int argc, char *argv[])
                     finish = true;
                     break;
                 }
-
-
-                
-
-
 
                 shift_arr_timer(timers);
                 shift_arr_pkt(pkts);
@@ -382,6 +378,49 @@ int main (int argc, char *argv[])
                     finish = true;
                     break;
                 }
+                
+            }
+            else if ((ackpkt.ack || ackpkt.dupack) && (ackpkt.acknum > expected || ((MAX_SEQN-expected)+ackpkt.acknum > 0) && ackpkt.acknum-expected>=0) ){
+                unsigned short diff;
+                if (ackpkt.acknum > expected){
+                    diff = ackpkt.acknum-expected;
+                }
+                else if (((MAX_SEQN-expected)+ackpkt.acknum > 0) && ackpkt.acknum-expected>=0){
+                    diff = (MAX_SEQN-expected)+ackpkt.acknum;
+                }
+
+                int pktsBetweenNum = ceil(diff/512);
+                unsigned short new_seq = (ackpkt.acknum + 9* 512 + diff)%MAX_SEQN;
+
+                //struct packet new;
+
+                char holder[PAYLOAD_SIZE];
+                m = fread(holder, 1, PAYLOAD_SIZE, fp);
+
+                if (m ==0)
+                {
+                    finish = true;
+                    break;
+                }
+
+                shift_arr_timer(timers);
+                shift_arr_pkt(pkts);
+                buildPkt(&pkts[9], new_seq, 0, 0, 0, 0, 0, m, holder);
+                timers[9]=setTimer();
+                printSend(&pkts[9], 0);
+                sendto(sockfd, &pkts[9], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+                // window shifting: pop front, push new pkt if has pkts left, push new timer
+                expected = (pkts[0].seqnum + pkts[0].length)%MAX_SEQN;
+                
+                not_yet_received ++;
+
+                if (m < 512)
+                {
+                    finish = true;
+                    break;
+                }
+                
+                
             }
         }
         
