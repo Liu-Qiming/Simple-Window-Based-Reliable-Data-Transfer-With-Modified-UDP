@@ -233,6 +233,11 @@ int main (int argc, char *argv[])
     unsigned short first_seq = pkts[0].seqnum; 
     unsigned short expected = (first_seq + pkts[0].length)%MAX_SEQN;
     int not_yet_received = 1;
+
+    bool no_more_to_send = false; // new added
+    unsigned short end_seq;
+
+
     double timers[WND_SIZE];
     timers[0]=timer;
     for (int k=1;k!=WND_SIZE;k++){
@@ -267,6 +272,8 @@ int main (int argc, char *argv[])
 
                 if (m ==0)
                 {
+                    end_seq = (first_seq + m) % MAX_SEQN;
+                    no_more_to_send = true;
                     finish = true;
                     break;
                 }
@@ -287,6 +294,8 @@ int main (int argc, char *argv[])
 
                 if (m < PAYLOAD_SIZE)
                 {
+                    end_seq = first_seq;
+                    no_more_to_send = true;
                     finish = true;
                     break;
                 }
@@ -358,6 +367,9 @@ int main (int argc, char *argv[])
 
                 if (m ==0)
                 {
+                    
+                    end_seq = new_seq;
+                    no_more_to_send = true;
                     finish = true;
                     break;
                 }
@@ -375,12 +387,25 @@ int main (int argc, char *argv[])
 
                 if (m < 512)
                 {
+                    
+                    end_seq = new_seq;
+                    no_more_to_send = true;
                     finish = true;
                     break;
                 }
                 
             }
-            else if ((ackpkt.ack || ackpkt.dupack) && (ackpkt.acknum > expected || ((MAX_SEQN-expected)+ackpkt.acknum > 0) && ackpkt.acknum-expected>=0) ){
+            else if (no_more_to_send)
+            {
+                continue;
+            }
+
+            // else
+            // {
+            //     printf("i am in");
+            // }
+
+            else if ((ackpkt.ack || ackpkt.dupack) && (ackpkt.acknum - expected > 512 || ((MAX_SEQN-expected)+ackpkt.acknum > 0) && ackpkt.acknum-expected>=0) ){
                 unsigned short diff;
                 if (ackpkt.acknum > expected){
                     diff = ackpkt.acknum-expected;
@@ -422,6 +447,10 @@ int main (int argc, char *argv[])
                 
                 
             }
+
+
+
+            
         }
         
         if (finish == true && not_yet_received == 0)
