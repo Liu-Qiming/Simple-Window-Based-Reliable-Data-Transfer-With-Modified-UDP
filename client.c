@@ -11,6 +11,7 @@
 #include <netdb.h> 
 
 #include <stdbool.h>
+#include <math.h>
 // =====================================
 
 #define RTO 500000 /* timeout in microseconds */
@@ -86,14 +87,14 @@ int isTimeout(double end) {
 }
 
 void shift_arr_timer(double arr[]){
-    for (int i=0;i!=10;i++){
+    for (int i=0;i!=9;i++){
         arr[i]=arr[i+1];
     }
     arr[9]=-1;
 }
 
 void shift_arr_pkt(struct packet arr[]){
-    for (int i=0;i!=10;i++){
+    for (int i=0;i!=9;i++){
         arr[i]=arr[i+1];
     }
 }
@@ -326,7 +327,7 @@ int main (int argc, char *argv[])
                             curr_pkt = pkts[j];
 
                             // send all non-empty pkts:
-                            printSend(&curr_pkt, 0);
+                            printSend(&curr_pkt, 1);
                             sendto(sockfd, &curr_pkt, PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
                             timers[j] = setTimer();
 
@@ -339,16 +340,16 @@ int main (int argc, char *argv[])
                 n = recvfrom(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr *) &servaddr, (socklen_t *) &servaddrlen);
                 
                 if (n>0)
-                {
+                {   // print receive
+                    printRecv(&ackpkt); 
+                    // check if is expected, if yes send new pkt
+                    not_yet_received --;
                     break;
                 }
             }
 
-            // print receive
-            printRecv(&ackpkt); 
-
             // check if is expected, if yes send new pkt
-            not_yet_received --;
+            // not_yet_received --;
             if (not_yet_received == 0)
             {
                 break;
@@ -405,46 +406,58 @@ int main (int argc, char *argv[])
             //     printf("i am in");
             // }
 
-            else if ((ackpkt.ack || ackpkt.dupack) && (ackpkt.acknum - expected > 512 || ((MAX_SEQN-expected)+ackpkt.acknum > 0) && ackpkt.acknum-expected>=0) ){
+            //else if ((ackpkt.ack || ackpkt.dupack) && (ackpkt.acknum - expected > 512 || ((MAX_SEQN-expected)+ackpkt.acknum > 0) && ackpkt.acknum-expected<0) )
+            else if ((ackpkt.ack || ackpkt.dupack) && (ackpkt.acknum - expected > 512 || ( (MAX_SEQN-expected+ackpkt.acknum > 512) && ackpkt.acknum-expected<0)))
+            {
                 unsigned short diff;
-                if (ackpkt.acknum > expected){
-                    diff = ackpkt.acknum-expected;
+                if (ackpkt.acknum - expected > 512){
+                    diff = (ackpkt.acknum-expected)%MAX_SEQN;
                 }
-                else if (((MAX_SEQN-expected)+ackpkt.acknum > 0) && ackpkt.acknum-expected>=0){
-                    diff = (MAX_SEQN-expected)+ackpkt.acknum;
+                else if (((MAX_SEQN-expected)+ackpkt.acknum > 512) && ackpkt.acknum-expected<0){
+                    diff = ((MAX_SEQN-expected)+ackpkt.acknum)%MAX_SEQN;
                 }
 
                 int pktsBetweenNum = ceil(diff/512);
-                unsigned short new_seq = (ackpkt.acknum + 9* 512 + diff)%MAX_SEQN;
+                unsigned short new_seq = (ackpkt.acknum + 9* 512 - diff)%MAX_SEQN;
 
                 //struct packet new;
+                for (int k = 0;k <= pktsBetweenNum;k++){
+                    char holder[PAYLOAD_SIZE];
+                    m = fread(holder, 1, PAYLOAD_SIZE, fp);
 
-                char holder[PAYLOAD_SIZE];
-                m = fread(holder, 1, PAYLOAD_SIZE, fp);
+                    if (m == 0)
+                    {
+                        finish = true;
+                        break;
+                    }
 
-                if (m ==0)
-                {
-                    finish = true;
+                    shift_arr_timer(timers);
+                    shift_arr_pkt(pkts);
+                    int s=0;
+                    for (;s!=10;s++){
+                        if (timers[s]==-1){
+                            break;
+                        }
+                    }
+                    buildPkt(&pkts[s], new_seq, 0, 0, 0, 0, 0, m, holder);
+                    timers[s]=setTimer();
+                    printSend(&pkts[s], 0);
+                    sendto(sockfd, &pkts[s], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+                    // window shifting: pop front, push new pkt if has pkts left, push new timer
+                    expected = (pkts[0].seqnum + pkts[0].length)%MAX_SEQN;
+                    
+                    not_yet_received ++;
+
+                    if (m < 512)
+                    {
+                        finish = true;
+                        break;
+                    }
+                }
+                
+                if (finish){
                     break;
                 }
-
-                shift_arr_timer(timers);
-                shift_arr_pkt(pkts);
-                buildPkt(&pkts[9], new_seq, 0, 0, 0, 0, 0, m, holder);
-                timers[9]=setTimer();
-                printSend(&pkts[9], 0);
-                sendto(sockfd, &pkts[9], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
-                // window shifting: pop front, push new pkt if has pkts left, push new timer
-                expected = (pkts[0].seqnum + pkts[0].length)%MAX_SEQN;
-                
-                not_yet_received ++;
-
-                if (m < 512)
-                {
-                    finish = true;
-                    break;
-                }
-                
                 
             }
 
