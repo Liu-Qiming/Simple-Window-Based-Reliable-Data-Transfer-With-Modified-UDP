@@ -279,11 +279,6 @@ int main (int argc, char *argv[])
                     break;
                 }
 
-                // if (i == 1)
-                // {
-                //     expected = (expected + m ) % MAX_SEQN; 
-                // }
-
                 first_seq = (first_seq + m) % MAX_SEQN;
 
                 buildPkt(&pkts[i], first_seq, 0, 0, 0, 0, 0, m, temp);
@@ -358,7 +353,6 @@ int main (int argc, char *argv[])
             if ((ackpkt.ack || ackpkt.dupack) && ackpkt.acknum == expected)
             {
                 
-                //printf("im in\n");
                 unsigned short new_seq = (ackpkt.acknum + 9* 512)%MAX_SEQN;
 
                 //struct packet new;
@@ -401,24 +395,34 @@ int main (int argc, char *argv[])
                 continue;
             }
 
-            // else
-            // {
-            //     printf("i am in");
-            // }
-
-            //else if ((ackpkt.ack || ackpkt.dupack) && (ackpkt.acknum - expected > 512 || ((MAX_SEQN-expected)+ackpkt.acknum > 0) && ackpkt.acknum-expected<0) )
-            else if ((ackpkt.ack || ackpkt.dupack) && (ackpkt.acknum - expected > 512 || ( (MAX_SEQN-expected+ackpkt.acknum > 512) && ackpkt.acknum-expected<0)))
+            else
             {
-                unsigned short diff;
-                if (ackpkt.acknum - expected > 512){
-                    diff = (ackpkt.acknum-expected)%MAX_SEQN;
-                }
-                else if (((MAX_SEQN-expected)+ackpkt.acknum > 512) && ackpkt.acknum-expected<0){
-                    diff = ((MAX_SEQN-expected)+ackpkt.acknum)%MAX_SEQN;
-                }
+                // ack != expected
+                if (pkts[0].seqnum + pkts[0].length > MAX_SEQN)
+                {
+                    // there is turnover
+                    if (ackpkt.acknum < expected)
+                    {
+                        // there is ack loss
+                        printf("ack is bigger 1");
+                        printf("expect %d\n", expected);
+                        unsigned short diff;
+
+                        diff = ackpkt.acknum + MAX_SEQN - expected; 
+
+
+                // if (ackpkt.acknum - expected > 512){
+                //     diff = (ackpkt.acknum-expected)%MAX_SEQN;
+                // }
+                // else if (((MAX_SEQN-expected)+ackpkt.acknum > 512) && ackpkt.acknum-expected<0){
+                //     diff = ((MAX_SEQN-expected)+ackpkt.acknum)%MAX_SEQN;
+                // }
 
                 int pktsBetweenNum = ceil(diff/512);
                 unsigned short new_seq = (ackpkt.acknum + 9* 512 - diff)%MAX_SEQN;
+
+
+                not_yet_received = not_yet_received - 1 - diff;
 
                 //struct packet new;
                 for (int k = 0;k <= pktsBetweenNum;k++){
@@ -446,6 +450,8 @@ int main (int argc, char *argv[])
                     // window shifting: pop front, push new pkt if has pkts left, push new timer
                     expected = (pkts[0].seqnum + pkts[0].length)%MAX_SEQN;
                     
+                    new_seq = (new_seq + pkts[s].length) % MAX_SEQN;  // new added
+                    
                     not_yet_received ++;
 
                     if (m < 512)
@@ -453,16 +459,96 @@ int main (int argc, char *argv[])
                         finish = true;
                         break;
                     }
+
+                    
                 }
                 
                 if (finish){
                     break;
                 }
                 
+
+                    }
+
+                }
+
+                else
+                {
+                    // there is no turnover
+                    if (ackpkt.acknum > expected)
+                    {
+                        // there is ack loss
+                        printf("ack is bigger 2");
+                        printf("expect %d\n", expected);
+                        unsigned short diff;
+
+                        diff = ackpkt.acknum-expected; 
+
+                // if (ackpkt.acknum - expected > 512){
+                //     diff = (ackpkt.acknum-expected)%MAX_SEQN;
+                // }
+                // else if (((MAX_SEQN-expected)+ackpkt.acknum > 512) && ackpkt.acknum-expected<0){
+                //     diff = ((MAX_SEQN-expected)+ackpkt.acknum)%MAX_SEQN;
+                // }
+
+                printf("diff is %d", diff);
+
+                int pktsBetweenNum = ceil(diff/512);
+                unsigned short new_seq = (ackpkt.acknum + 9* 512 - diff)%MAX_SEQN;
+
+
+                not_yet_received = not_yet_received - 1 - pktsBetweenNum;
+
+                //struct packet new;
+                for (int k = 0;k <= pktsBetweenNum;k++){
+                    char holder[PAYLOAD_SIZE];
+                    m = fread(holder, 1, PAYLOAD_SIZE, fp);
+
+                    if (m == 0)
+                    {
+                        finish = true;
+                        break;
+                    }
+
+                    shift_arr_timer(timers);
+                    shift_arr_pkt(pkts);
+                    int s=0;
+                    for (;s!=10;s++){
+                        if (timers[s]==-1){
+                            break;
+                        }
+                    }
+                    buildPkt(&pkts[s], new_seq, 0, 0, 0, 0, 0, m, holder);
+                    timers[s]=setTimer();
+                    printSend(&pkts[s], 0);
+                    sendto(sockfd, &pkts[s], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+                    // window shifting: pop front, push new pkt if has pkts left, push new timer
+                    expected = (pkts[0].seqnum + pkts[0].length)%MAX_SEQN;
+                    
+                    new_seq = (new_seq + pkts[s].length) % MAX_SEQN;  // new added
+                    
+                    not_yet_received ++;
+
+                    if (m < 512)
+                    {
+                        finish = true;
+                        break;
+                    }
+
+                    
+                }
+                
+                if (finish){
+                    break;
+                }
+                
+                    }
+
+                }
+
             }
 
-
-
+           
             
         }
         
