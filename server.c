@@ -75,14 +75,19 @@ int isTimeout(double end) {
     return ((end - start) < 0.0);
 }
 
-void shift_num(int arr[], int num2move){
-    int num2Cap=WND_SIZE-num2move;
-    
-    memcpy((void *) arr, (void *) (arr + num2move), sizeof(int) * num2Cap);
-    for (int k= num2Cap-1;k!=WND_SIZE;k++){
-        arr[k]=0;
-    }
-}
+//not working shifting function
+// void shift_num(int arr[], int num2move){
+//     int num2Cap=WND_SIZE-num2move;
+//     for (int i=0;i!=num2move;i++){
+//         for (int j=0;j!=WND_SIZE;j++){
+//             arr[j]=arr[j+1];      
+//             }
+//     }
+//     for (int k= num2Cap-1;k!=WND_SIZE;k++){
+//         arr[k]=0;
+//     }
+
+// }
 
 // =====================================
 
@@ -251,7 +256,6 @@ int main (int argc, char *argv[])
 
                         if (incoming_pkt==cur_start){
                             memcpy(bufferTenPkts+ (incoming_pkt - cur_start) * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
-                            // printf("buffer cpy: %s\n", ackpkt.payload);
                             buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
                             printSend(&ackpkt, 0);
                             sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
@@ -296,7 +300,7 @@ int main (int argc, char *argv[])
                         }
                         else{
                             memcpy(bufferTenPkts+ (incoming_pkt - cur_start) * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
-                            // printf("buffer cpy: %s\n", ackpkt.payload);
+                            
                             buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
                             printSend(&ackpkt, 0);
                             sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
