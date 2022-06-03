@@ -75,6 +75,15 @@ int isTimeout(double end) {
     return ((end - start) < 0.0);
 }
 
+void shift_num(int arr[], int num2move){
+    int num2Cap=WND_SIZE-num2move;
+    
+    memcpy((void *) arr, (void *) (arr + num2move), sizeof(int) * num2Cap);
+    for (int k= num2Cap-1;k!=WND_SIZE;k++){
+        arr[k]=0;
+    }
+}
+
 // =====================================
 
 int main (int argc, char *argv[])
@@ -122,6 +131,7 @@ int main (int argc, char *argv[])
         // =====================================
         // Establish Connection: This procedure is provided to you directly and
         // is already working.
+
         int n;
 
         FILE* fp;
@@ -165,7 +175,7 @@ int main (int argc, char *argv[])
                         fwrite(ackpkt.payload, 1, ackpkt.length, fp);
 
                         seqNum = ackpkt.acknum;
-                        cliSeqNum = (ackpkt.seqnum + ackpkt.length) % MAX_SEQN;
+                        cliSeqNum = (ackpkt.seqnum + 1) % MAX_SEQN;
 
                         buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
                         printSend(&ackpkt, 0);
@@ -191,81 +201,115 @@ int main (int argc, char *argv[])
         //       a single data packet, and then tears down the connection
         //       without handling data loss.
         //       Only for demo purpose. DO NOT USE IT in your final submission
-        fclose(fp);
         struct packet recvpkt;
-        //unsigned short srvSeqNum=ackpkt.acknum;
-        int j=2;
+        unsigned short startSeqNum=(cliSeqNum-1)%MAX_SEQN;
+        int receivedBM[WND_SIZE];
+        int pktLength[WND_SIZE];
+        for (int i=0;i!=WND_SIZE;i++){
+            receivedBM[i]=0;
+            pktLength[i]=0;
+        }
+        char bufferTenPkts[PAYLOAD_SIZE*WND_SIZE];
+        int cur_start=1;
+        int full=1;
 
         while(1) {
             n = recvfrom(sockfd, &recvpkt, PKT_SIZE, 0, (struct sockaddr *) &cliaddr, (socklen_t *) &cliaddrlen);
             if (n > 0) {
                 printRecv(&recvpkt);
+                
 
-                unsigned short expect_cliseq=(cliSeqNum+PAYLOAD_SIZE)%MAX_SEQN;
-                //printf("the expect value is: %d\n", expect_cliseq);
-                //if ((abs(expect_cliseq-recvpkt.seqnum)>512 ||(MAX_SEQN-cliSeqNum)+expect_cliseq>512)&& recvpkt.fin==0)
-                // printf("Very outside %d | %d | cliSeqNum: %d\n",recvpkt.seqnum, expect_cliseq, cliSeqNum);
-                // if ((abs(expect_cliseq-recvpkt.seqnum)>512)&& recvpkt.fin==0){
+                if (recvpkt.fin) {
+                    cliSeqNum = (recvpkt.seqnum + 1) % MAX_SEQN;
 
-                if (recvpkt.seqnum != cliSeqNum){
-                    //printf("outside %d | %d\n",recvpkt.seqnum, expect_cliseq);
-                    //if((MAX_SEQN-cliSeqNum)+expect_cliseq>512){
-                        //printf("inside %d | %d\n",recvpkt.seqnum, expect_cliseq);
+                    buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
+                    printSend(&ackpkt, 0);
+                    sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
+                    break;
+                }
+                else
+                {
+                    
+                    int incoming_pkt=(recvpkt.seqnum-startSeqNum)%MAX_SEQN;
+
+                    if(incoming_pkt>=cur_start+WND_SIZE || incoming_pkt < cur_start-WND_SIZE){
+                        continue;
+                    }
+
+                    cliSeqNum = (recvpkt.seqnum + 1) % MAX_SEQN;
+
+                    if (receivedBM[incoming_pkt-cur_start]==1 || cur_start>incoming_pkt){
                         buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 0, 1, 0, NULL);
                         printSend(&ackpkt, 0);
                         sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
-                        continue;
-                    //}
-                }
-                //}
-                
-                
-                    
-                
-
-                if (recvpkt.fin==0 && recvpkt.seqnum == cliSeqNum){
-                    
-                    int length = snprintf(NULL, 0, "%d", j) + 6;
-                    char* filename = malloc(length);
-                    snprintf(filename, length, "%d.file", j);
-
-                    fp = fopen(filename, "w");
-                    free(filename);
-                    if (fp == NULL) {
-                        perror("ERROR: File could not be created\n");
-                        exit(1);
                     }
+                    else
+                    {
+                        int cur_index=incoming_pkt-cur_start;
+                        receivedBM[cur_index]=1;
+                        pktLength[cur_index]=recvpkt.length;
 
-                    fwrite(recvpkt.payload, 1, recvpkt.length, fp);
-                    fclose(fp);
+                        if (incoming_pkt==cur_start){
+                            memcpy(bufferTenPkts+ (incoming_pkt - cur_start) * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
+                            // printf("buffer cpy: %s\n", ackpkt.payload);
+                            buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
+                            printSend(&ackpkt, 0);
+                            sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
+                            
+                            full = cur_start;
+                            int i=0;
+                            int count=0;
+                            for (;i!=WND_SIZE && receivedBM[i]==1;i++){ 
+                                count++; 
+                                full++;
+                            } // count is now the number of received pkts
 
-                    cliSeqNum=(recvpkt.seqnum+recvpkt.length) % MAX_SEQN;
-                    //printf("the received pkt length is: %d\n",recvpkt.length);
-                    buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
-                    printSend(&ackpkt, 0);
-                    sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
-                    
-                    j++;
+                            int bytes2write=pktLength[i-1]+ (count-1) * PAYLOAD_SIZE;
+                            fwrite(bufferTenPkts, 1, bytes2write, fp);
+                            memcpy(bufferTenPkts, bufferTenPkts+bytes2write, WND_SIZE*PAYLOAD_SIZE-bytes2write);    //move buffer forward
+                            
+                            int num2move=(full-cur_start);
+                            int numuntilCap=cur_start + WND_SIZE - full;
+                            // printf("num2move: %d | full: %d | curstart: %d\n",num2move, full, cur_start);
+                            // printf("1: ");
+                            // for (int g=0;g!=WND_SIZE;g++){
+                            //     printf("bit: %d",receivedBM[g]);
+                            // }
+                            // printf("\n");
+                            memcpy((int *) receivedBM, (int *) (receivedBM + num2move), sizeof(int) * numuntilCap);
+                            // printf("2: ");
+                            // for (int g=0;g!=WND_SIZE;g++){
+                            //     printf("bit: %d",receivedBM[g]);
+                            // }
+                            // printf("\n");
+                            // shift_num(receivedBM, num2move);
+                            memset((int *) (receivedBM + numuntilCap), 0, (full - cur_start) * sizeof(int));
+                            // printf("3: ");
+                            // for (int g=0;g!=WND_SIZE;g++){
+                            //     printf("bit: %d",receivedBM[g]);
+                            // }
+                            // printf("\n");
+                            memcpy((int *) pktLength, (int *) (pktLength + num2move), sizeof(int) * numuntilCap);
+
+                            
+                            cur_start = full;
+                        }
+                        else{
+                            memcpy(bufferTenPkts+ (incoming_pkt - cur_start) * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
+                            // printf("buffer cpy: %s\n", ackpkt.payload);
+                            buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
+                            printSend(&ackpkt, 0);
+                            sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
+                        }
+                        
+                    }   
                 }
-
-                // client sends fin
-                else if (recvpkt.fin) {
-                    cliSeqNum = (cliSeqNum + 1) % MAX_SEQN;
-
-                    buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
-                    printSend(&ackpkt, 0);
-                    sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
-
-                    break;
-                }
-                
             }
         }
 
         // *** End of your server implementation ***
-        // ========================================
-        // ******** commented out the following code will not double free ************************
-        //fclose(fp);
+
+        fclose(fp);
         // =====================================
         // Connection Teardown: This procedure is provided to you directly and
         // is already working.
@@ -293,7 +337,6 @@ int main (int argc, char *argv[])
             }
 
             printRecv(&lastackpkt);
-            //printf("lastackpkt acknum: %d\nfinpkt seqNum: %d\nlast fin is: %d",lastackpkt.acknum, finpkt.seqnum, lastackpkt.fin);
             if (lastackpkt.fin) {
 
                 printSend(&ackpkt, 0);
@@ -305,7 +348,6 @@ int main (int argc, char *argv[])
                 
                 continue;
             }
-            
             if ((lastackpkt.ack || lastackpkt.dupack) && lastackpkt.acknum == (finpkt.seqnum + 1) % MAX_SEQN)
                 break;
         }
