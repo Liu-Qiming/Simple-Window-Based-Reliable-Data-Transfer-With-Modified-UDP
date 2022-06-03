@@ -314,6 +314,7 @@ int main (int argc, char *argv[])
                     
                     printTimeout(&pkts[0]);
                     not_yet_received = 0;
+                    expected=pkts[0].seqnum+pkts[0].length;
                     for (int j = 0; j< 10; j++)
                     {
                         if (timers[j] != -1)
@@ -352,11 +353,15 @@ int main (int argc, char *argv[])
             //printf("ackpkt.acknum=%d, expected=%d\n",ackpkt.acknum,expected);
             if ((ackpkt.ack || ackpkt.dupack) && ackpkt.acknum == expected)
             {
+                printf("is expected\n");
+
+                shift_arr_timer(timers);
+                shift_arr_pkt(pkts);
+
+                //build packet new;
+
                 
                 unsigned short new_seq = (ackpkt.acknum + 9* 512)%MAX_SEQN;
-
-                //struct packet new;
-
                 char holder[PAYLOAD_SIZE];
                 m = fread(holder, 1, PAYLOAD_SIZE, fp);
 
@@ -369,8 +374,7 @@ int main (int argc, char *argv[])
                     break;
                 }
 
-                shift_arr_timer(timers);
-                shift_arr_pkt(pkts);
+                
                 buildPkt(&pkts[9], new_seq, 0, 0, 0, 0, 0, m, holder);
                 timers[9]=setTimer();
                 printSend(&pkts[9], 0);
@@ -408,7 +412,7 @@ int main (int argc, char *argv[])
                         printf("expect %d\n", expected);
                         unsigned short diff;
 
-                        diff = ackpkt.acknum + MAX_SEQN - expected; 
+                        diff = (ackpkt.acknum + MAX_SEQN - expected)%MAX_SEQN; 
 
 
                 // if (ackpkt.acknum - expected > 512){
