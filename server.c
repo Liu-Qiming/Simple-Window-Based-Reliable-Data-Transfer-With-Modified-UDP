@@ -209,13 +209,13 @@ int main (int argc, char *argv[])
         //       Only for demo purpose. DO NOT USE IT in your final submission
         struct packet recvpkt;
         unsigned short startSeqNum=(cliSeqNum-1)%MAX_SEQN;
-        int receivedBM[WND_SIZE];
+        int receivedBM[WND_SIZE];   // bitmap
         int pktLength[WND_SIZE];
         for (int i=0;i!=WND_SIZE;i++){
             receivedBM[i]=0;
             pktLength[i]=0;
         }
-        char bufferTenPkts[PAYLOAD_SIZE*WND_SIZE];
+        char bufferTenPkts[PAYLOAD_SIZE*WND_SIZE];  // max buffer window size
         int cur_start=1;
         int full=1;
 
@@ -252,16 +252,16 @@ int main (int argc, char *argv[])
                         printSend(&ackpkt, 0);
                         sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
                     }
-                    // normal case
+                    // pkts handling
                     else
                     {
                         int cur_index=incoming_pkt-cur_start;
                         receivedBM[cur_index]=1;
                         pktLength[cur_index]=recvpkt.length;
 
-                        // regular case
+                        
                         if (incoming_pkt==cur_start){
-                            memcpy(bufferTenPkts+ (incoming_pkt - cur_start) * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
+                            memcpy(bufferTenPkts+ cur_index * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
                             buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
                             printSend(&ackpkt, 0);
                             sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
@@ -275,7 +275,7 @@ int main (int argc, char *argv[])
                             } // count is now the number of pkts
 
                             int bytes2write=pktLength[i-1]+ (count-1) * PAYLOAD_SIZE;
-                            fwrite(bufferTenPkts, 1, bytes2write, fp);
+                            fwrite(bufferTenPkts, 1, bytes2write, fp);  // get on board!
                             memcpy(bufferTenPkts, bufferTenPkts+bytes2write, WND_SIZE*PAYLOAD_SIZE-bytes2write);    //move buffer forward
                             // printf("num2move: %d | full: %d | curstart: %d\n",num2move, full, cur_start);
                             // printf("1: ");
@@ -300,9 +300,9 @@ int main (int argc, char *argv[])
                             // printf("\n");
                             cur_start = full;
                         }
-                        // just send out pkt without writing to buffer
+                        // receive payload, send out pkt
                         else{
-                            memcpy(bufferTenPkts+ (incoming_pkt - cur_start) * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
+                            memcpy(bufferTenPkts+ cur_index * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
                             
                             buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
                             printSend(&ackpkt, 0);
