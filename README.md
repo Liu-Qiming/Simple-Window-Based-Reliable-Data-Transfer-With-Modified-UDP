@@ -4,7 +4,7 @@ This is the repo for spring 2022 cs118 project 2.
 
 ## Team members
 Qiming Liu 705424057 jerry197352468@gmail.com
-Jiayi Ma 
+Jiayi Ma 005321538 majy2000@outlook.com
 
 ## Makefile
 
@@ -52,3 +52,7 @@ In the GBN we implemented previously, the synack and finack were constantly loss
 resolved this problem. Our ACK number was also able to receive, and we used the newACK-oldACK mod 512 in the first place, but we realized that this
 might introduce too much complexity, so we switched to using our window pkts[] to linear search through this array to see if there are any pkts that
 we jumped. Because if the server returns a larger acknum then it cannot be pkt loss, i.e. the server mush receive it and the ack was lost.
+
+Client side: At first, we were not using the given variables, such as s, e, full, seqNum, ackpkt, and initialized many tempt variables to perform certain functions. And this causes many problems. This even breaks the performance of syn and fin loss handling, which were given. Then, we read the given codes more carefully and try to keep the consistency of the code. This not only solves the problem but also makes some implementations easier. 
+
+The most tricky part is handling the window-shifting. At first, we try to keep a 10 size window, delete the pkt received, do the shifting of others, and then push in the new sent pkt, which is not only inefficient but also causes many errors. Then, we introduce the pkt_real_num and make use of given s and e: we let int s and e to act like pointers and dynamically slide across the packets, and use the pkt_real_num to calculate the index in the arrays. This method was tricky to come up with, but it simplifies implementation.
