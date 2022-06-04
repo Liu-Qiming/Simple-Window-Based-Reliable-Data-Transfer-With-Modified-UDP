@@ -230,17 +230,20 @@ int main (int argc, char *argv[])
     while (1)
     {
         //if no more to send and no more to receive, we are done
-        if (no_more_to_send == true && s == e) 
+        if (e == s && no_more_to_send == true) 
             break;
         // if still have file parts to send and window is not full
-        if (no_more_to_send == false && e-s < WND_SIZE)
+        if (e < WND_SIZE + s && no_more_to_send == false)
         {
             timer = setTimer();
             
-            while (e-s < WND_SIZE)
+            while (e < WND_SIZE + s)
             {
                 int arr_index = e-s;
                 m = fread(buf, 1, PAYLOAD_SIZE, fp);
+
+                // printf("arr index is %d\n", arr_index);
+                // printf("seq num is %d\n", seqNum);
                 
                 buildPkt(&pkts[arr_index], (seqNum + e) % MAX_SEQN, (synackpkt.seqnum + 1) % MAX_SEQN, 0, 0, 1, 0, m, buf);
                 printSend(&pkts[arr_index], 0);
@@ -252,6 +255,8 @@ int main (int argc, char *argv[])
                 //if file reading is done
                 if (m < PAYLOAD_SIZE)
                 {
+                    // printf("i am in!");
+                                    
                     no_more_to_send = true;
                     break;
                 }
@@ -272,7 +277,7 @@ int main (int argc, char *argv[])
                 p = pkts_timer;
                 for (int i = 0; i < e - s; i++)
                 {
-                    if (pkts_ack_received[i] == false && isTimeout(*p))
+                    if (isTimeout(*p) && pkts_ack_received[i] == false )
                     {
                         printTimeout(&pkts[i]);
                         printSend(&pkts[i], 1);
@@ -289,14 +294,21 @@ int main (int argc, char *argv[])
         unsigned short pkt_real_num = (ackpkt.acknum - seqNum - 1) % MAX_SEQN; // seqNum: seqnum of the very first pkt we send
         
         if (pkt_real_num < s || pkt_real_num >= e) // not legal
-            continue; 
+        {
+            continue;
+        }
 
         unsigned short idx = pkt_real_num - s;
+
+        // printf("pkt_real_num is %d\n", pkt_real_num);
+        // printf("index is %d\n", idx);
+        // printf("current s is %d and current e is %d\n", s, e);
+
+
         // pkt_real_num - s is the index in window
         pkts_ack_received[idx] = true;
 
         // if ack-received packet is 1st in window, then the ack is what we expect => do the shiftings
-        // else go back loop start
         if (idx == 0)
         {
             full = s;
@@ -306,35 +318,49 @@ int main (int argc, char *argv[])
                 full++;
                 q++;
             }
+
             int shift_size = full - s;
             int how_many_to_shift = e - full;
+
+            // printf("shift size is %d\n", shift_size);
+            // printf("number to shift is %d\n", how_many_to_shift);
                       
-            // move the packet:
-            struct packet *pkts_ptr = pkts;
+            // shift pkts:
+            int pkts_idx = 0;
             for (int k = 0; k< how_many_to_shift; k++)
             {
-                *pkts_ptr = *(pkts_ptr + shift_size);
-                pkts_ptr ++;
+                pkts[pkts_idx] = pkts[pkts_idx + shift_size];
+                pkts_idx ++;
             }
 
 
-            // move timer
-            double *timer_ptr = pkts_timer;
+            // shift timer
+            int timer_idx = 0;
             for (int j = 0; j < how_many_to_shift; j++)
             {
-                *timer_ptr = *(timer_ptr + shift_size);
-                timer_ptr++;
+                pkts_timer[timer_idx] = pkts_timer[timer_idx + shift_size];
+                timer_idx++;
             }
 
-            // move pkts_ack_received arr
-            bool *received_ptr = pkts_ack_received;
+            // shift pkts_ack_received arr
+            int received_idx = 0;
             for (int m = 0; m < how_many_to_shift; m++)
             {
-                *received_ptr = *(received_ptr + shift_size);
-                received_ptr++;
+                pkts_ack_received[received_idx] = pkts_ack_received[received_idx + shift_size];
+                received_idx ++;
             }          
             s = full;          
-        }       
+        }
+
+        else // received is not the 1st in arr, go back to receive & checktimer
+        {
+            // printf("I am in. ack is for 1st pkt in window!\n");
+            // printf("real number is %d\n", pkt_real_num);
+            // printf("s is %d\n", s);
+
+            continue;
+        }
+               
     }
     // *** End of your client implementation ***
     fclose(fp);
