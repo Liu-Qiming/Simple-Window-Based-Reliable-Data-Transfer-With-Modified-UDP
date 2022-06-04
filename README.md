@@ -20,7 +20,8 @@ You are encouraged to host your code in private repositories on [GitHub](https:/
 Server side: For SR, we are keeping track of a window and has every received pkts to be marked as received. Every out of order pkts or invalid pkts will be
 ignored so that we can send the dupack to the client side. When the connection is not over, we are sending the next expected pkt number after received a 
 new pkt. We also keep a buffer which can contain the window size number of pkts' payload. When there is a pkt is missing, we move our window until that 
-lost pkt's number, and in the meantime write the received pkts' payload to the buffer. If there is no pkt lossing, we write incoming payload to the buffer.
+lost pkt's number, and in the meantime only write the received pkts' payload to the buffer when the currect start pkt is equal to the cap number of pkt within the window. If there is no pkt lossing, we write incoming payload to the buffer, but if there is pkt lossing, we slide the window forward to have the 
+missing pkt takes up the first place on the bitmap and waiting for client's retransmission.
 
 Client side: in addition to the pkts array that is already given in the skeleton, we have a pkts_timer array to keep track of the timers of the packets in the window, and a pkts_ack_received array to record whether this sent packet has been received or not. Note here we also have a pkt_real_num: {0, 1, 2, 3, 4… }
 

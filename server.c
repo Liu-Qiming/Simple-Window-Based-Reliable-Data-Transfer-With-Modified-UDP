@@ -224,7 +224,7 @@ int main (int argc, char *argv[])
             if (n > 0) {
                 printRecv(&recvpkt);
                 
-
+                // finishing transmission
                 if (recvpkt.fin) {
                     cliSeqNum = (recvpkt.seqnum + 1) % MAX_SEQN;
 
@@ -233,28 +233,33 @@ int main (int argc, char *argv[])
                     sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
                     break;
                 }
+                // not yet finished
                 else
                 {
                     
                     int incoming_pkt=(recvpkt.seqnum-startSeqNum)%MAX_SEQN;
 
+                    // bad cases
                     if(incoming_pkt>=cur_start+WND_SIZE || incoming_pkt < cur_start-WND_SIZE){
                         continue;
                     }
-
+                    // check bad cases before updating
                     cliSeqNum = (recvpkt.seqnum + 1) % MAX_SEQN;
-
+                    
+                    // dup pkt received, send back dupack
                     if (receivedBM[incoming_pkt-cur_start]==1 || cur_start>incoming_pkt){
                         buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 0, 1, 0, NULL);
                         printSend(&ackpkt, 0);
                         sendto(sockfd, &ackpkt, PKT_SIZE, 0, (struct sockaddr*) &cliaddr, cliaddrlen);
                     }
+                    // normal case
                     else
                     {
                         int cur_index=incoming_pkt-cur_start;
                         receivedBM[cur_index]=1;
                         pktLength[cur_index]=recvpkt.length;
 
+                        // regular case
                         if (incoming_pkt==cur_start){
                             memcpy(bufferTenPkts+ (incoming_pkt - cur_start) * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
                             buildPkt(&ackpkt, seqNum, cliSeqNum, 0, 0, 1, 0, 0, NULL);
@@ -267,7 +272,7 @@ int main (int argc, char *argv[])
                             for (;i!=WND_SIZE && receivedBM[i]==1;i++){ 
                                 count++; 
                                 full++;
-                            } // count is now the number of received pkts
+                            } // count is now the number of pkts
 
                             int bytes2write=pktLength[i-1]+ (count-1) * PAYLOAD_SIZE;
                             fwrite(bufferTenPkts, 1, bytes2write, fp);
@@ -295,6 +300,7 @@ int main (int argc, char *argv[])
                             // printf("\n");
                             cur_start = full;
                         }
+                        // just send out pkt without writing to buffer
                         else{
                             memcpy(bufferTenPkts+ (incoming_pkt - cur_start) * PAYLOAD_SIZE, recvpkt.payload, recvpkt.length);
                             
