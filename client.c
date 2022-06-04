@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #include <fcntl.h>
 #include <netdb.h> 
+#include <stdbool.h>
 
 // =====================================
 
@@ -209,7 +210,7 @@ int main (int argc, char *argv[])
     //       handling data loss.
     //       Only for demo purpose. DO NOT USE IT in your final submission
 
-    int no_more_to_send = 0;
+    bool no_more_to_send = false;
     double pkts_timer[WND_SIZE];
     double *p = pkts_timer;
     //init all element in pkts_timer to be current timer
@@ -219,38 +220,39 @@ int main (int argc, char *argv[])
         p++;
     }
 
-    int pkts_ack_received[WND_SIZE];
+    bool pkts_ack_received[WND_SIZE];
     for (int i = 0; i < WND_SIZE; i++)
     {
-        pkts_ack_received[i] = 0;
+        pkts_ack_received[i] = false;
     }
 
 
     while (1)
     {
-        //if not more to send and no more to receive, we are done
-        if (no_more_to_send && s == e) 
+        //if no more to send and no more to receive, we are done
+        if (no_more_to_send == true && s == e) 
             break;
         // if still have file parts to send and window is not full
-        if (! no_more_to_send && e-s < WND_SIZE)
+        if (no_more_to_send == false && e-s < WND_SIZE)
         {
             timer = setTimer();
             
             while (e-s < WND_SIZE)
             {
+                int arr_index = e-s;
                 m = fread(buf, 1, PAYLOAD_SIZE, fp);
                 
-                buildPkt(&pkts[e-s], (seqNum + e) % MAX_SEQN, (synackpkt.seqnum + 1) % MAX_SEQN, 0, 0, 1, 0, m, buf);
-                printSend(&pkts[e-s], 0);
-                sendto(sockfd, &pkts[e-s], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
-                pkts_timer[e-s] = timer;
-                pkts_ack_received[e-s] = 0;
+                buildPkt(&pkts[arr_index], (seqNum + e) % MAX_SEQN, (synackpkt.seqnum + 1) % MAX_SEQN, 0, 0, 1, 0, m, buf);
+                printSend(&pkts[arr_index], 0);
+                sendto(sockfd, &pkts[arr_index], PKT_SIZE, 0, (struct sockaddr*) &servaddr, servaddrlen);
+                pkts_timer[arr_index] = timer;
+                pkts_ack_received[arr_index] = false;
                 e++;
                 
                 //if file reading is done
                 if (m < PAYLOAD_SIZE)
                 {
-                    no_more_to_send = 1;
+                    no_more_to_send = true;
                     break;
                 }
             }
@@ -270,7 +272,7 @@ int main (int argc, char *argv[])
                 p = pkts_timer;
                 for (int i = 0; i < e - s; i++)
                 {
-                    if (!pkts_ack_received[i] && isTimeout(*p))
+                    if (pkts_ack_received[i] == false && isTimeout(*p))
                     {
                         printTimeout(&pkts[i]);
                         printSend(&pkts[i], 1);
@@ -284,51 +286,51 @@ int main (int argc, char *argv[])
 
         printRecv(&ackpkt);
         
-        unsigned short pktnum = (ackpkt.acknum - seqNum - 1) % MAX_SEQN; // seqNum: seqnum of the very first pkt we send
+        unsigned short pkt_real_num = (ackpkt.acknum - seqNum - 1) % MAX_SEQN; // seqNum: seqnum of the very first pkt we send
         
-        if (pktnum < s || pktnum >= e) // not legal
+        if (pkt_real_num < s || pkt_real_num >= e) // not legal
             continue; 
 
-        // pkynum - s is the index in window
-        pkts_ack_received[pktnum-s] = 1;
+        unsigned short idx = pkt_real_num - s;
+        // pkt_real_num - s is the index in window
+        pkts_ack_received[idx] = true;
 
-        // if pktnum = s, then the ack is what we expect => do the shiftings, else go back loop start
-        if (pktnum == s)
+        // if ack-received packet is 1st in window, then the ack is what we expect => do the shiftings
+        // else go back loop start
+        if (idx == 0)
         {
             full = s;
-            int *q = pkts_ack_received;
-            for (int i = 0; i < e - s && *q; i++)
+            bool *q = pkts_ack_received;
+            for (int i = 0; *q == true && i < e - s; i++)
             {
                 full++;
                 q++;
             }
-            int shift_step = full - s;
-            int size = e - full;
-            
-
-            
+            int shift_size = full - s;
+            int how_many_to_shift = e - full;
+                      
             // move the packet:
             struct packet *pkts_ptr = pkts;
-            for (int k = 0; k< size; k++)
+            for (int k = 0; k< how_many_to_shift; k++)
             {
-                *pkts_ptr = *(pkts_ptr + shift_step);
+                *pkts_ptr = *(pkts_ptr + shift_size);
                 pkts_ptr ++;
             }
 
 
             // move timer
             double *timer_ptr = pkts_timer;
-            for (int j = 0; j < size; j++)
+            for (int j = 0; j < how_many_to_shift; j++)
             {
-                *timer_ptr = *(timer_ptr + shift_step);
+                *timer_ptr = *(timer_ptr + shift_size);
                 timer_ptr++;
             }
 
             // move pkts_ack_received arr
-            int *received_ptr = pkts_ack_received;
-            for (int m = 0; m < size; m++)
+            bool *received_ptr = pkts_ack_received;
+            for (int m = 0; m < how_many_to_shift; m++)
             {
-                *received_ptr = *(received_ptr + shift_step);
+                *received_ptr = *(received_ptr + shift_size);
                 received_ptr++;
             }          
             s = full;          
