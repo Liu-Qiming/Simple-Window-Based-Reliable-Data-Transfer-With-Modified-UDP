@@ -75,19 +75,20 @@ int isTimeout(double end) {
     return ((end - start) < 0.0);
 }
 
-//not working shifting function
-// void shift_num(int arr[], int num2move){
-//     int num2Cap=WND_SIZE-num2move;
-//     for (int i=0;i!=num2move;i++){
-//         for (int j=0;j!=WND_SIZE;j++){
-//             arr[j]=arr[j+1];      
-//             }
-//     }
-//     for (int k= num2Cap-1;k!=WND_SIZE;k++){
-//         arr[k]=0;
-//     }
+//hifting function
+void shift_num(int arr[], int num2move){
+    int num2Cap=WND_SIZE-num2move;
+    int temp[num2Cap];
+    int j=num2move;
+    for (int i=0;i!=num2Cap;i++,j++){
+        temp[i]=arr[j];
+    }
+    memcpy(arr, temp, sizeof(int)*num2Cap);
+    for (int k= num2Cap;k!=WND_SIZE;k++){
+        arr[k]=0;
+    }
 
-// }
+}
 
 // =====================================
 
@@ -271,31 +272,27 @@ int main (int argc, char *argv[])
                             int bytes2write=pktLength[i-1]+ (count-1) * PAYLOAD_SIZE;
                             fwrite(bufferTenPkts, 1, bytes2write, fp);
                             memcpy(bufferTenPkts, bufferTenPkts+bytes2write, WND_SIZE*PAYLOAD_SIZE-bytes2write);    //move buffer forward
-                            
-                            int num2move=(full-cur_start);
-                            int numuntilCap=cur_start + WND_SIZE - full;
                             // printf("num2move: %d | full: %d | curstart: %d\n",num2move, full, cur_start);
                             // printf("1: ");
                             // for (int g=0;g!=WND_SIZE;g++){
                             //     printf("bit: %d",receivedBM[g]);
                             // }
                             // printf("\n");
-                            memcpy((int *) receivedBM, (int *) (receivedBM + num2move), sizeof(int) * numuntilCap);
+                            int num2move=(full-cur_start);
+                            //int numuntilCap=cur_start + WND_SIZE - full;
+                            
+
+                            
+                            
+
+                            shift_num(receivedBM, num2move);
+                            shift_num(pktLength, num2move);
+                            
                             // printf("2: ");
                             // for (int g=0;g!=WND_SIZE;g++){
                             //     printf("bit: %d",receivedBM[g]);
                             // }
                             // printf("\n");
-                            // shift_num(receivedBM, num2move);
-                            memset((int *) (receivedBM + numuntilCap), 0, (full - cur_start) * sizeof(int));
-                            // printf("3: ");
-                            // for (int g=0;g!=WND_SIZE;g++){
-                            //     printf("bit: %d",receivedBM[g]);
-                            // }
-                            // printf("\n");
-                            memcpy((int *) pktLength, (int *) (pktLength + num2move), sizeof(int) * numuntilCap);
-
-                            
                             cur_start = full;
                         }
                         else{
